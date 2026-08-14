@@ -650,7 +650,7 @@ ui <- page_fluid(
     "))
   ),
   
-  div(class = "app-title", "TACTIC-GBM: Tumor microenvironment – Aware Combination Therapy Index and Characterization for glioblastoma"),
+  div(class = "app-title", "TACTIC-GBM: Tumor microenvironment – Aware Combination Therapy Index and Characterization for Glioblastoma"),
   div(class = "app-subtitle", "Interactive exploration of genes, single drugs, doublets, and single-cell patterns"),
   
   navset_card_tab(
