@@ -701,7 +701,7 @@ ui <- page_fluid(
               "survival curves, with a choice of Median or Maxstat cut-off methods."
             ),
             tags$li(
-              strong("Top Combinations — "),
+              strong("Top Doublets — "),
               "Browse a ranked table of candidate drug-pair (doublet) combinations, scored by",
               "clinical association, tumor microenvironment relevance, literature support, and",
               "combined rank-aggregation metrics. Filter, sort, and export results directly."
@@ -818,7 +818,7 @@ ui <- page_fluid(
     ),
     
     nav_panel(
-      "Top Combinations",
+      "Top Doublets",
       layout_column_wrap(
         width = 1,
         card(
