@@ -220,6 +220,18 @@ get_drug_genes_by_source <- function(drug_name, source_name, database_list) {
   unique(na.omit(genes))
 }
 
+wrap_title <- function(x, width = 22) {
+  paste(strwrap(x, width = width), collapse = "\n")
+}
+
+truncate_title <- function(x, max_chars = 20) {
+  if (nchar(x) > max_chars) {
+    paste0(substr(x, 1, max_chars), "...")
+  } else {
+    x
+  }
+}
+
 plot_gene_heatmap_by_group <- function(df, gene_name, gbm_datasets, scale_rows = "none",
                                        cluster_rows = TRUE, cluster_cols = FALSE,
                                        na_col = "grey85", display_numbers = FALSE) {
@@ -294,7 +306,7 @@ plot_gene_heatmap_by_group <- function(df, gene_name, gbm_datasets, scale_rows =
     fontsize_col = 9,
     fontsize_row = 8,
     fontsize = 12,
-    main = paste0(gene_name, " - % Expressing by Cell Group")
+    main = wrap_title(gene_name)
   )
 }
 
@@ -373,7 +385,7 @@ plot_gene_heatmap_by_type <- function(df, gene_name, gbm_datasets, scale_rows = 
     fontsize_col = 9,
     fontsize_row = 8,
     fontsize = 12,
-    main = paste0(gene_name, " - % Expressing by Cell Type")
+    main = wrap_title(gene_name)
   )
 }
 
@@ -437,21 +449,24 @@ plot_drug_heatmap_update <- function(df, drug_name, gbm_datasets, scale_rows = "
     mat <- mat[row_order, , drop = FALSE]
     annotation_row <- annotation_row[row_order, , drop = FALSE]
   }
-  
+  main_fontsize <- if (nchar(drug_name) > 25) 10 else 12
   pheatmap(
     mat,
-    scale = scale_rows,                          # "none" -> raw % values, real color scale
+    scale = scale_rows,
     cluster_rows = FALSE,
     cluster_cols = cluster_cols,
     show_rownames = TRUE,
     annotation_row = annotation_row,
     annotation_colors = annotation_colors,
     na_col = na_col,
-    display_numbers = display_numbers,            # TRUE -> overlay actual % on each cell
+    display_numbers = display_numbers,
     number_format = "%.1f",
-    fontsize_col = 14,
+    angle_col = 90,        # added
+    border_color = NA,     # added
+    fontsize_col = 9,       # was 14
+    fontsize_row = 8,       # added
     fontsize = 12,
-    main = paste0(drug_name, " - % Expressing by Cell Group")
+    main = truncate_title(drug_name)
   )
 }
 
@@ -513,7 +528,7 @@ plot_drug_heatmap_type <- function(df, drug_name, gbm_datasets, scale_rows = "no
     mat <- mat[row_order, , drop = FALSE]
     annotation_row <- annotation_row[row_order, , drop = FALSE]
   }
-  
+  main_fontsize <- if (nchar(drug_name) > 25) 10 else 12
   pheatmap(
     mat,
     scale = scale_rows,
@@ -528,11 +543,13 @@ plot_drug_heatmap_type <- function(df, drug_name, gbm_datasets, scale_rows = "no
     angle_col = 90,
     border_color = NA,
     fontsize_col = 9,
-    fontsize_row = 12,
+    fontsize_row = 8,        # was 12 — now matches the other three
     fontsize = 12,
-    main = paste0(drug_name, " - % Expressing by Cell Type")
+    main = truncate_title(drug_name)
   )
 }
+
+
 get_cutpoint <- function(final_data, variable, method = "Median Cut") {
   
   if (method == "Median Cut") {
@@ -839,24 +856,52 @@ ui <- page_fluid(
         card(
           card_header("Mechanistic Insights — By Drug"),
           card_body(
-            selectInput("Drug1", "Drug", choices = unique(merge_by_group$drug)),
+            fluidRow(
+              column(
+                width = 6,
+                selectInput("Drug1", "Drug", choices = unique(merge_by_group$drug))
+              ),
+              column(
+                width = 6,
+                div(
+                  style = "margin-top: 26px; color: #666; font-size: 13px; line-height: 1.4;",
+                  icon("circle-info", style = "margin-right: 4px;"),
+                  "Each heatmap shows the percentage of cells expressing the selected drug's target genes."
+                )
+              )
+            ),
             br(),
             fluidRow(
               column(6, card(card_header("Cell Group"), card_body(imageOutput("HeatmapPlot_by_group", height = "600px")))),
               column(6, card(card_header("Cell Type"), card_body(imageOutput("HeatmapPlot_by_type", height = "600px"))))
-            )
+            ),
+            uiOutput("drug1_full_name_note")
           )
         ),
         
         card(
           card_header("Mechanistic Insights — By Gene"),
           card_body(
-            selectInput("Gene1", "Gene", choices = unique(merge_by_group_gene$gene)),
+            fluidRow(
+              column(
+                width = 6,
+                selectInput("Gene1", "Gene", choices = unique(merge_by_group_gene$gene))
+              ),
+              column(
+                width = 6,
+                div(
+                  style = "margin-top: 26px; color: #666; font-size: 13px; line-height: 1.4;",
+                  icon("circle-info", style = "margin-right: 4px;"),
+                  "Each heatmap shows the percentage of cells expressing the selected gene."
+                )
+              )
+            ),
             br(),
             fluidRow(
               column(6, card(card_header("Cell Group"), card_body(imageOutput("GeneHeatmapPlot_by_group", height = "600px")))),
               column(6, card(card_header("Cell Type"), card_body(imageOutput("GeneHeatmapPlot_by_type", height = "600px"))))
-            )
+            ),
+            uiOutput("gene1_full_name_note")
           )
         )
       )
@@ -1236,7 +1281,7 @@ server <- function(input, output, session) {
     
     outfile <- tempfile(fileext = ".png")
     
-    png(outfile, width = 1200, height = 900, res = 150)
+    png(outfile, width = 1400, height = 1100, res = 180)   # now matches the other three
     
     plot_drug_heatmap_update(
       df = merge_by_group_5,
@@ -1295,22 +1340,22 @@ server <- function(input, output, session) {
   })
   
   output$drugGeneVenn1 <- renderPlot({
-    print(plot_list[[1]])
+    plot_list[[1]]
   })
   
   
   output$drugGeneVenn2 <- renderPlot({
-    print(plot_list[[2]])
+    plot_list[[2]]
   })
   
   
   output$drugGeneVenn3 <- renderPlot({
-    print(plot_list[[3]])
+    plot_list[[3]]
   })
   
   
   output$drugGeneVenn4 <- renderPlot({
-    print(plot_list[[4]])
+    plot_list[[4]]
   })
   
   output$GeneHeatmapPlot_by_group <- renderImage({
@@ -1336,6 +1381,16 @@ server <- function(input, output, session) {
       alt = "Cell-group heatmap by gene"
     )
   }, deleteFile = TRUE)
+  
+  output$drug1_full_name_note <- renderUI({
+    req(input$Drug1)
+    if (nchar(input$Drug1) > 20) {
+      div(
+        style = "margin-top: 8px; text-align: center; color: #888; font-size: 12px; font-style: italic;",
+        paste0("Full name: ", input$Drug1)
+      )
+    }
+  })
   
   
   output$GeneHeatmapPlot_by_type <- renderImage({
