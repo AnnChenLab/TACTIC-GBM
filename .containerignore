@@ -1,0 +1,6 @@
+.git
+.Rproj.user
+.DS_Store
+.RData
+.Rhistory
+shiny_run.log
