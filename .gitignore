@@ -1,5 +1,10 @@
-   .Rproj.user/
-   .Rhistory
-   .RData
-   .Ruserdata
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
 .Rproj.user
+
+# Internal deployment/ops docs - not for the public repo (CHPC-specific paths, accounts, ports)
+DEPLOYMENT_GUIDE.md
+TWO_SERVER_DEPLOYMENT_PLAN.md
+shiny_run.log
