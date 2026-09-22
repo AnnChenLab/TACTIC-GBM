@@ -37,6 +37,16 @@ CGGA_rna_seq_final_325_geneanlysis <- readRDS("data/CGGA_325_readcount_Dseq2.rds
 gbm_tcga_seq_final_geneanlysis_primary = gbm_tcga_seq_final_geneanlysis %>% filter(patient_barcode %in% tcga_clinical_subtype$patient_barcode) 
 CGGA_rna_seq_final_325_geneanlysis_primary = CGGA_rna_seq_final_325_geneanlysis %>% filter(patient_barcode %in% cgga325_clinical_subtype$patient_barcode)
 
+# Calculate SD for numeric (gene) columns only
+num_cols <- sapply(CGGA_rna_seq_final_325_geneanlysis_primary, is.numeric)
+gene_sd <- sapply(CGGA_rna_seq_final_325_geneanlysis_primary[, num_cols, drop = FALSE],
+                  sd, na.rm = TRUE)
+
+# Keep patient_barcode plus genes with SD > 0
+keep_genes <- names(gene_sd)[!is.na(gene_sd) & gene_sd > 0]
+CGGA_rna_seq_final_325_geneanlysis_primary <-
+  CGGA_rna_seq_final_325_geneanlysis_primary[, c("patient_barcode", keep_genes), drop = FALSE]
+
 gbm_datasets <- c(
   "GSE103224",
   "GSE131928_10X",
