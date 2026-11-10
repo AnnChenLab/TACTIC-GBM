@@ -842,18 +842,20 @@ ui <- page_fluid(
     ),
     
     nav_panel(
-      "PC1 and Survival",
+      "Doublet Survival Analysis",
       layout_column_wrap(
         width = 1,
         card(
-          card_header("Doublet Survival Analysis"),
+          card_header("Two-Drug Survival Comparison (Maxstat Cut-off)"),
           card_body(
+            p("Each column shows one selected drug's Maxstat-based Low/High stratification;",
+              "TCGA is shown on top, CGGA325 below."),
             fluidRow(
               column(6, selectInput("drug1_pc1", "Drug 1", choices = drug_seed_ls)),
               column(6, selectInput("drug2_pc1", "Drug 2", choices = unique(Doublet_all_with_coef$Drug2)))
             ),
             br(),
-            plotOutput("pc1SurvivalPlot", height = "520px")
+            plotOutput("pc1SurvivalPlot", height = "900px")
           )
         )
       )
@@ -1172,92 +1174,44 @@ server <- function(input, output, session) {
   })
 
   
-  output$pc1SurvivalPlot = renderPlot({
+  output$pc1SurvivalPlot <- renderPlot({
     
-    data_PC_doublet = function(data, target_gene_ls,drug_list){
-      #Filter the gene expression data
-      filter_data = data %>% 
-        dplyr::select(any_of(unlist(target_gene_ls,use.names = FALSE)))
-      
-      loading = list()
-      
-      for (i in seq_along(drug_list)){
-        pca = prcomp(filter_data[, colnames(filter_data) %in% target_gene_ls[[drug_list[i]]]], center = TRUE, scale = TRUE)
-        if (mean(pca$rotation[, 1] > 0) < 0.5)
-        {
-          pca$rotation <- pca$rotation * (-1)
-          pca$x <- pca$x * (-1)
-        }
-        pca_value = unname(pca$x[,1])
-        filter_data[[paste0("PC_", i)]] = pca_value
-        loading[[drug_list[i]]] = as.data.frame(pca$rotation)
-      }
-      result = list(filter_data = filter_data,loading = loading)
-      return(result)
-    }
+    req(input$drug1_pc1, input$drug2_pc1)
     
-    drug_gene_ls = DrugData()$drug_gene_ls
-    drug1 = input$drug1_pc1
-    #drug1 = drug_seed_ls[1]
-    drug2 = input$drug2_pc1
-    #drug2 = drug_list[2]
-    
-    drug_list = c(drug1,drug2)
+    drug1 <- input$drug1_pc1
+    drug2 <- input$drug2_pc1
     
     plots <- list()
-    for (cohort_name in c("tcga",  "cgga325")) {
+    
+    for (cohort_name in c("tcga", "cgga325")) {
       
-      #corhot = "tcga"
-      #seq_final <- gbm_tcga_seq_final_geneanlysis
-      #Clinical_Data <- tcga_clinical
       seq_final <- geneData()[[cohort_name]]
       Clinical_Data <- ClinicalData()[[cohort_name]]
-      #Clinical_Data <- tcga_clinical
       
-      
-      drug_target_gene_ls_doublet <- list()
-      for (current_drug in drug_list) {
-        # Assign the target genes to db_drug_target_gene_ls for this drug
-        drug_target_gene_ls_doublet[[current_drug]] <- unique_drug_genes[[current_drug]]
-      }
-      
-      filter_data <- add_column(data_PC_doublet(seq_final,drug_target_gene_ls_doublet,drug_list)$filter_data[,c("PC_1","PC_2")], seq_final["patient_barcode"]) 
-      final_data <- left_join(filter_data, Clinical_Data, by="patient_barcode")
-      
-      cutpoint_1 <- median(final_data[["PC_1"]], na.rm = TRUE)
-      cutpoint_2 <-median(final_data[["PC_2"]], na.rm = TRUE)
-      
-      df_sar_group <- final_data %>% 
-        dplyr::select(os_time, os_status, PC_1, PC_2) %>% 
-        dplyr::mutate(drug_1_group = if_else(PC_1 <= cutpoint_1, "Low", "High")) %>% 
-        dplyr::mutate(drug_1_group = factor(drug_1_group, levels = c("Low", "High"))) %>% 
+      for (drug_name in c(drug1, drug2)) {
         
-        dplyr::mutate(drug_2_group = if_else(PC_2 <= cutpoint_2, "Low", "High")) %>% 
-        dplyr::mutate(drug_2_group = factor(drug_2_group, levels = c("Low", "High"))) 
-      
-      surv.model <- survfit(formula = Surv(os_time, os_status) ~ drug_1_group + drug_2_group,
-                            data = df_sar_group)
-      
-      p = ggsurvplot(surv.model, risk.table = TRUE,
-                     data = df_sar_group,
-                     pval = TRUE,
-                     font.tickslab = c(18),
-                     ggtheme = theme_classic2(base_size=14), 
-                     risk.table.fontsize = 4,  # Reduce font size for the risk table
-                     risk.table.height = 0.4,  # Reduce the height of the risk table
-                     tables.height = 0.3, xlab ="Survival time in Months",
-                     legend.labs = c("Low,Low", "Low,High","High,Low","High,High"),
-                     xlim = c(0, 60)
-      )
-      
-      p$plot <- p$plot + ggtitle(toupper(cohort_name))
-      
-      plots[[cohort_name]] <- p$plot
-      
+        p <- run_survival_plot_single_drug(
+          seq_final = seq_final,
+          Clinical_Data = Clinical_Data,
+          drug_name = drug_name,
+          cohort_name = toupper(cohort_name),
+          cutoff_method = "Maxstat Cut-off"
+        )
+        
+        p$plot <- p$plot + ggtitle(paste0(toupper(cohort_name), ": ", drug_name))
+        
+        plots[[paste(cohort_name, drug_name, sep = "_")]] <- p$plot
+      }
     }
     
-    grid.arrange(plots$tcga, plots$cgga325, ncol = 2)
-    
+    # Row 1 = TCGA (drug1, drug2); Row 2 = CGGA325 (drug1, drug2)
+    grid.arrange(
+      plots[[paste("tcga",    drug1, sep = "_")]],
+      plots[[paste("tcga",    drug2, sep = "_")]],
+      plots[[paste("cgga325", drug1, sep = "_")]],
+      plots[[paste("cgga325", drug2, sep = "_")]],
+      ncol = 2, nrow = 2
+    )
   })
   
   
