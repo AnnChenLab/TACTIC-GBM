@@ -25,7 +25,7 @@ library(tibble)
 library(stringr)
 
 ####### Contact form settings #######
-web3forms_access_key <- "fe0a4c2c-5316-4962-9d3c-5dad83cd4b6c"   
+web3forms_access_key <- "0f471c59-725c-41fa-bb79-660c7b6c7461"   
 
 
 
